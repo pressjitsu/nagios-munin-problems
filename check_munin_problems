@@ -1,0 +1,52 @@
+#!/usr/bin/python2
+'''
+Software License Agreement GPLv3
+http://www.gnu.org/licenses/gpl-3.0.txt
+'''
+
+from HTMLParser import HTMLParser
+import sys
+
+class ProblemsHTMLParser(HTMLParser):
+	problems = set()
+	exit_code = 0
+	exit_codes = { 'critical': 2, 'warning': 1, 'unknown': 3 }
+
+	# Parser state
+	is_parsing = None
+	in_node = False
+	post_a = 0
+
+	def handle_starttag(self, tag, attrs):
+		attrs = dict(attrs)
+
+		if self.is_parsing: # Inside one of the .problem divs
+			if self.in_node: # Inside one of the .nodetitle spans
+				if tag == 'a':
+					if self.post_a == 2: # Inside the third a
+						if sys.argv[1] in attrs.get( 'href' ): # Match hostname
+							self.problems.add('%s:%s' % (self.is_parsing, attrs.get( 'href' ).replace('.html', '')))
+							if not self.exit_code: # Set exit code, whatever top is
+								self.exit_code = self.exit_codes[self.is_parsing]
+						self.in_node = False
+						self.post_a = 0
+						return
+					else:
+						self.post_a += 1
+						return
+
+			if tag == 'div' and attrs.get('class') == 'node':
+				self.in_node = True
+				return
+
+		if tag == 'div' and attrs.get('class') == 'problem' and attrs.get('id', False):
+			self.is_parsing = attrs.get('id') # Switch .problem div
+
+parser = ProblemsHTMLParser()
+parser.feed(open('/var/cache/munin/www/problems.html', 'rb').read())
+
+if parser.exit_code: # There were issues
+	print('%d munin problem(s) for %s' % (len(parser.problems), sys.argv[1]))
+	print('\n'.join(parser.problems))
+	sys.exit(parser.exit_code)
+print('%d munin problem(s) for %s' % (len(parser.problems), sys.argv[1]))
