@@ -1,9 +1,4 @@
 #!/usr/bin/python2
-'''
-Software License Agreement GPLv3
-http://www.gnu.org/licenses/gpl-3.0.txt
-'''
-
 from HTMLParser import HTMLParser
 import sys
 
@@ -17,6 +12,9 @@ class ProblemsHTMLParser(HTMLParser):
 	in_node = False
 	post_a = 0
 
+	# Ignore warnings from the following Munin
+	ignore = []
+
 	def handle_starttag(self, tag, attrs):
 		attrs = dict(attrs)
 
@@ -25,8 +23,10 @@ class ProblemsHTMLParser(HTMLParser):
 				if tag == 'a':
 					if self.post_a == 2: # Inside the third a
 						if sys.argv[1] in attrs.get( 'href' ): # Match hostname
-							self.problems.add('%s:%s' % (self.is_parsing, attrs.get( 'href' ).replace('.html', '')))
-							if not self.exit_code: # Set exit code, whatever top is
+							problem = attrs.get( 'href' ).replace('.html', '')
+							self.problems.add('%s:%s' % (self.is_parsing, problem))
+							# Set exit code, whatever top is unless ignorable
+							if not self.exit_code and not len(filter(lambda a: a in problem, self.ignore)):
 								self.exit_code = self.exit_codes[self.is_parsing]
 						self.in_node = False
 						self.post_a = 0
@@ -43,10 +43,14 @@ class ProblemsHTMLParser(HTMLParser):
 			self.is_parsing = attrs.get('id') # Switch .problem div
 
 parser = ProblemsHTMLParser()
+try:
+	parser.ignore = sys.argv[2].split(',')
+except IndexError:
+	pass
 parser.feed(open('/var/cache/munin/www/problems.html', 'rb').read())
 
-if parser.exit_code: # There were issues
-	print('%d munin problem(s) for %s' % (len(parser.problems), sys.argv[1]))
-	print('\n'.join(parser.problems))
-	sys.exit(parser.exit_code)
 print('%d munin problem(s) for %s' % (len(parser.problems), sys.argv[1]))
+if len(parser.problems):
+	print('\n'.join(parser.problems))
+if parser.exit_code: # There were issues
+	sys.exit(parser.exit_code)

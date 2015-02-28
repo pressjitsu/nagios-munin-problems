@@ -19,6 +19,8 @@ define command {
 }
 ```
 
+A second argument to `check_munin_problems` will enable filtering for certain problems. For example, for Nagios to not be alerted by [WordPress plugins that haven't been updated](https://github.com/pressjitsu/munin-wp-plugins) `check_munin_problems $HOSTADDRESS$ wp_plugins` can be called. This will returns the usual output but an exit code of 0 if there are no other problems with the host. Several ignores can be provided by using a comma as a delimiter: `check_munin_problems $HOSTADDRESS$ wp_plugins,mysql_threads`.
+
 ## License
 
 GPLv3 (http://www.gnu.org/licenses/gpl-3.0.txt)
